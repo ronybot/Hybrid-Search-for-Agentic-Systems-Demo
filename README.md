@@ -10,11 +10,11 @@ A self-contained Jupyter notebook demonstrating how to combine **BM25 sparse ret
 
 | Section | What it covers |
 |---------|---------------|
-| **BM25** | Inverted-index keyword retrieval with TF-IDF+ scoring |
-| **kNN Dense** | Sentence embeddings (`all-MiniLM-L6-v2`) + FAISS flat index |
+| **Keyword (BM25)** | Inverted-index keyword retrieval with TF-IDF+ scoring |
+| **Semantic (Dense)** | Sentence embeddings (`all-MiniLM-L6-v2`) + FAISS flat index |
 | **Hybrid Fusion** | Reciprocal Rank Fusion (RRF) and weighted convex combination |
+| **GraphRAG** | Graph Augmented Retrieval using extracted conceptual entities |
 | **Agentic RAG** | Claude tool-use loop with dynamic query rewriting and alpha selection |
-| **Evaluation** | Hit Rate @K, MRR, NDCG@K across all strategies |
 
 ---
 
@@ -73,14 +73,15 @@ Run cells top-to-bottom. The first cell installs all dependencies automatically 
 
 ---
 
-## Evaluation Results (on mini corpus)
+## Decision Guide — Which Strategy to Use?
 
-| Strategy | Hit@3 | MRR | NDCG@3 |
-|----------|-------|-----|--------|
-| BM25 only | 1.000 | 1.000 | 0.845 |
-| Dense only | 1.000 | 1.000 | 1.000 |
-| Hybrid RRF | 1.000 | 1.000 | 1.000 |
-| Hybrid α=0.5 | 1.000 | 1.000 | 1.000 |
+| Methodology                               | Recommended Alpha/Strategy           |
+|-------------------------------------------|--------------------------------------|
+| **Exact identifiers** (error codes)       | Convex α ≈ 0.1 or pure Keyword       |
+| **Conceptual/Semantic queries**           | Convex α ≈ 0.9 or pure Semantic      |
+| **Mixed queries / No labels**             | RRF                                  |
+| **Graph connections needed**              | GraphRAG                             |
+| **Versatile search for changing reality** | Give the LLM control over alpha!     |
 
 ---
 
@@ -105,6 +106,10 @@ $$\text{score}(d) = \alpha \cdot \hat{s}_{\text{dense}}(d) + (1-\alpha) \cdot \h
 | 0.1 | Keyword-heavy (error codes, SKUs) |
 | 0.5 | Balanced |
 | 0.9 | Semantic-heavy (conversational) |
+
+### Graph Augmented Retrieval (GraphRAG)
+
+Extracts conceptual entities to build a relationship layout, then retrieves documents via graph-traversed neighborhoods. Expands on traditional dense and sparse search by taking hops through connected domain knowledge.
 
 ### Agentic RAG
 

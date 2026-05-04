@@ -1,6 +1,6 @@
 # Hybrid Search for Agentic Systems Demo
 
-A self-contained Jupyter notebook demonstrating how to combine **BM25 sparse retrieval** and **kNN dense retrieval** into a hybrid search pipeline, then wrap it as a tool for an **agentic RAG loop** powered by Claude.
+A self-contained Jupyter notebook demonstrating how to combine **BM25 sparse retrieval** and **kNN dense retrieval** into a hybrid search pipeline, then wrap it as a tool for an **agentic RAG loop** powered by an LLM.
 
 > Based on: [How to Build Agentic RAG with Hybrid Search — Towards Data Science](https://towardsdatascience.com/how-to-build-agentic-rag-with-hybrid-search/)
 
@@ -14,21 +14,18 @@ A self-contained Jupyter notebook demonstrating how to combine **BM25 sparse ret
 | **Semantic (Dense)** | Sentence embeddings (`all-MiniLM-L6-v2`) + FAISS flat index |
 | **Hybrid Fusion** | Reciprocal Rank Fusion (RRF) and weighted convex combination |
 | **GraphRAG** | Graph Augmented Retrieval using extracted conceptual entities |
-| **Agentic RAG** | Claude tool-use loop with dynamic query rewriting and alpha selection |
+| **Agentic RAG** | LLM tool-use loop with dynamic query rewriting and alpha selection |
 
 ---
 
-## Why Hybrid?
+## Methodologies Compared
 
-Pure vector search fails on exact identifiers:
+This repository explores several search paradigms using a purposefully challenging corpus (a mock banking knowledgebase filled with precise status codes and overlapping concepts):
 
-```
-"Error code ER_NO_DEFAULT_FOR_FIELD"   ← BM25 wins
-"What does SKU-4821 cost?"             ← BM25 wins
-"How do I speed up slow queries?"      ← Dense wins
-```
-
-Hybrid search consistently outperforms either method alone — **+26–31% NDCG** vs dense-only and **+18.5% MRR** vs BM25-only on vocabulary-mismatched domains (BEIR benchmark).
+*   **Keyword (Sparse / BM25)**: Excels at exact term matching (e.g., error codes like `PENDING_KB200`, IDs, specific jargon) but struggles with synonyms or implied concepts.
+*   **Semantic (Dense / kNN)**: Excels at understanding user intent and broad concepts even when exact words don't match, but frequently fails on exact identifiers.
+*   **Hybrid Search**: Merges sparse and dense ranked lists, filling the gaps of each method. It consistently outperforms either method alone on vocabulary-mismatched domains.
+*   **GraphRAG**: Broadens context by extracting conceptual entities and traversing their relationship neighborhoods.
 
 ---
 
@@ -67,9 +64,9 @@ Run cells top-to-bottom. The first cell installs all dependencies automatically 
 | `rank-bm25` | BM25 sparse retrieval |
 | `sentence-transformers` | Dense embeddings |
 | `faiss-cpu` | ANN vector index |
-| `anthropic` | Claude API client |
+| `anthropic` | LLM API client (configurable for others) |
 | `numpy` / `scikit-learn` | Numerics & evaluation |
-| `python-dotenv` | Load `ANTHROPIC_API_KEY` from `.env` |
+| `python-dotenv` | Load API keys from `.env` |
 
 ---
 
@@ -97,11 +94,11 @@ Best default when you have no labelled data.
 
 ### Convex Combination
 
-Weighted score fusion after min-max normalisation:
+Weighted score fusion after min-max normalization:
 
 $$\text{score}(d) = \alpha \cdot \hat{s}_{\text{dense}}(d) + (1-\alpha) \cdot \hat{s}_{\text{sparse}}(d)$$
 
-| α | Behaviour |
+| α | Behavior |
 |---|-----------|
 | 0.1 | Keyword-heavy (error codes, SKUs) |
 | 0.5 | Balanced |
@@ -113,12 +110,15 @@ Extracts conceptual entities to build a relationship layout, then retrieves docu
 
 ### Agentic RAG
 
-The LLM autonomously picks the query, alpha, and whether to retrieve again:
+To handle complex and ambiguous queries, we wrap the hybrid search engine as a functional tool for an LLM. The agentic loop allows the LLM to autonomously navigate the tricky dataset by:
+1. Formulating and refining the **query** based on the results of previous search attempts.
+2. Dynamically adjusting the **alpha** weight (e.g., using a lower alpha specifically to hunt for exact error codes, or higher for broad contexts).
+3. Retrying the search until sufficient context is retrieved to synthesize a definitive answer.
 
 ```
-User → Claude ─┬─ hybrid_search(query_1, alpha=0.1) → ...
-               ├─ hybrid_search(query_2, alpha=0.8) → ...
-               └─ synthesise → Final answer
+User → LLM ─┬─ hybrid_search(query="PENDING_KB200 status", alpha=0.1) → ...
+            ├─ hybrid_search(query="check clearance in progress", alpha=0.6) → ...
+            └─ synthesise → Final answer
 ```
 
 ---
